@@ -4,8 +4,8 @@ num_pairs = 9
 num_entity = 10
 num_child = 5
 num_generation = 10
-tournament_size = 3  # Tournament size
-mutation_rate = 0.1  # Mutation rate (10%)
+tournament_size = 3  
+mutation_rate = 0.1 
 
 products = [
     {"name": "Product 1", "id": 1, "expiration": 3, "value": 15, "count": 4, "conflict": [1, 10]},
@@ -25,15 +25,36 @@ def has_conflict(pair):
     sec_product = products[pair[1] - 1]
     return sec_product["id"] in frs_product["conflict"] or frs_product["id"] in sec_product["conflict"]
 
-def generate_entity(num_pairs):
-    pairs = []
-    for _ in range(num_pairs):
-        while True:
-            pair = [random.randint(1, 10), random.randint(1, 10)]
-            if not has_conflict(pair):
-                pairs.append(pair)
-                break
-    return pairs
+
+
+
+def check_constraints(p1, p2, product_counts, product_expirations): 
+    return (not has_conflict((p1, p2)) and 
+            product_counts[p1] > 0 and product_counts[p2] > 0 and
+            product_expirations[p1] > 0 and product_expirations[p2] > 0) 
+
+
+
+def generate_entity(num_pairs): 
+    valid_pairs = [] 
+    product_counts = {product['id']: product['count'] for product in products}
+    product_expirations = {product['id']: product['expiration'] for product in products}
+    for _ in range(num_pairs): 
+        valid = False
+        while not valid:
+            pair = random.sample(products, 2) 
+            p1, p2 = pair[0]['id'], pair[1]['id'] 
+            if check_constraints(p1, p2, product_counts, product_expirations):
+                valid_pairs.append((p1, p2)) 
+                product_counts[p1] -= 1 
+                product_counts[p2] -= 1 
+                product_expirations[p1] -= 1 
+                product_expirations[p2] -= 1 
+                valid = True
+    return  valid_pairs
+
+
+
 
 def generate_primary_population(num_entity, num_pairs):
     population = []
@@ -63,14 +84,32 @@ def tournament_selection(population, tournament_size):
     winner = max(tournament, key=lambda x: fitness(x))
     return winner
 
+
 def reproduction(parents):
     crossover_point = random.randint(2, 7)
     while True:
         parent1 = tournament_selection(parents, tournament_size)
         parent2 = tournament_selection(parents, tournament_size)
         child = parent1[:crossover_point] + parent2[crossover_point:]
-        if all(not has_conflict(pair) for pair in child):
+        
+        product_counts = {product['id']: product['count'] for product in products}
+        product_expirations = {product['id']: product['expiration'] for product in products}
+        
+        valid = True
+        for p1, p2 in child:
+            if not check_constraints(p1, p2, product_counts, product_expirations):
+                valid = False
+                break
+            product_counts[p1] -= 1
+            product_counts[p2] -= 1
+            product_expirations[p1] -= 1
+            product_expirations[p2] -= 1
+
+        if valid:
             return child
+
+
+
 
 def mutate(individual, mutation_rate):
     for i in range(len(individual)):
@@ -98,12 +137,18 @@ for generation in range(num_generation):
     population.extend(children)
     population = select_survivors(population, num_entity)
 
-    # Print the population and their fitness values for each generation
-    print(f"Generation {generation + 1}:")
-    for individual in population:
-        print(individual, "Fitness Value:", fitness(individual))
+   
+    # print(f"Generation {generation + 1}:")
+    # for individual in population:
+    #     print(individual, fitness(individual))
 
-# Output the best individual from the final population
+  
+print("____________________________________")
+for i in  range(len(population)):
+    print(population[i] , fitness(population[i])) 
+
+
+print("\n")
 best_individual = max(population, key=lambda x: fitness(x))
-print("\nBest Individual:", best_individual)
-print("Fitness Value:", fitness(best_individual))
+print("\nBest Answer in all generation:", best_individual ,fitness(best_individual) )
+# print(fitness(best_individual))
